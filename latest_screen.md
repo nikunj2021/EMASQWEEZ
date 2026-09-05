@@ -1,6 +1,6 @@
 # Weekly EMA Alignment & Proximity Screen
 
-_Last run: 2026-09-05 12:19 UTC_
+_Last run: 2026-09-05 13:58 UTC_
 
 **24 stocks matched**: weekly close above EMA10, EMA30 and EMA40, EMA10 > EMA30 > EMA40, close within 7% of all three EMAs, and >= 500,000 average weekly volume.
 
