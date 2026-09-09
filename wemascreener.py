@@ -58,6 +58,7 @@ import json
 import time
 import logging
 import argparse
+from urllib.parse import quote
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -298,13 +299,17 @@ def write_outputs(df: pd.DataFrame):
 SHEET_WORKSHEET_NAME = "Latest"
 
 
+TRADINGVIEW_CHART_URL = "https://www.tradingview.com/chart/?symbol=NSE:{symbol}"
+
+
 def push_to_google_sheet(df: pd.DataFrame):
     """
     Writes `df` to a worksheet named SHEET_WORKSHEET_NAME in the spreadsheet
     identified by the GOOGLE_SHEET_ID env var, authenticating with the
     service account JSON in the GCP_SERVICE_ACCOUNT_JSON env var. No-ops
     (with a log message) if either variable isn't set, so this is safe to
-    leave unconfigured.
+    leave unconfigured. The Symbol column is written as a HYPERLINK()
+    formula linking to that ticker's TradingView chart.
     """
     creds_json = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
     sheet_id = os.environ.get("GOOGLE_SHEET_ID")
@@ -352,8 +357,17 @@ def push_to_google_sheet(df: pd.DataFrame):
         if df.empty:
             ws.update(values=[["No matches this week."]], range_name="A2")
         else:
-            data_rows = [df.columns.tolist()] + df.astype(str).values.tolist()
-            ws.update(values=data_rows, range_name="A2")
+            sheet_df = df.astype(str).copy()
+            sheet_df["Symbol"] = df["Symbol"].apply(
+                lambda sym: '=HYPERLINK("{url}","{sym}")'.format(
+                    url=TRADINGVIEW_CHART_URL.format(symbol=quote(sym, safe="")),
+                    sym=sym,
+                )
+            )
+            data_rows = [sheet_df.columns.tolist()] + sheet_df.values.tolist()
+            # USER_ENTERED so the HYPERLINK() formulas are evaluated by
+            # Sheets instead of being stored as literal formula text.
+            ws.update(values=data_rows, range_name="A2", value_input_option="USER_ENTERED")
 
         log.info("Pushed %d rows to Google Sheet %s (worksheet '%s').", len(df), sheet_id, SHEET_WORKSHEET_NAME)
 
